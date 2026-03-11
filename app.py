@@ -229,7 +229,7 @@ def pagina_ingresar(lookup: Dict):
     st.subheader("Detalles de Factura")
 
     desc_sel = st.selectbox("Descripción larga", options=descs if descs else [""], key=f"desc_sel_{fn}")
-    desc_manual = st.text_input("O escribe descripción:", value=desc_sel, key=f"desc_manual_{fn}").upper()
+    desc_manual = st.text_input("O escribe descripción (o usa el selector de arriba):", key=f"desc_manual_{fn}").upper()
     descripcion = desc_manual if desc_manual else desc_sel.upper()
 
     # Contrato
@@ -262,7 +262,7 @@ def pagina_ingresar(lookup: Dict):
         plazo = f"{mes_ini} {anio_ini} - {mes_fin} {anio_fin}"
 
     fact_sel = st.selectbox("Factura", options=facts if facts else [""], key=f"fact_sel_{fn}")
-    fact_manual = st.text_input("O escribe número de factura:", value=fact_sel, key=f"fact_manual_{fn}")
+    fact_manual = st.text_input("O escribe número de factura (o usa el selector de arriba):", key=f"fact_manual_{fn}")
     factura = fact_manual if fact_manual else fact_sel
 
     col5, col6 = st.columns(2)
@@ -486,17 +486,18 @@ def pagina_ver_facturas():
             for col_idx, val in enumerate(row_data, start=1):
                 ws.cell(row=row_idx, column=col_idx).value = val
 
-        # Autoajustar ancho de columnas
-        for col_cells in ws.columns:
+        # Autoajustar ancho de columnas (usando índice para evitar problema con celdas mergeadas)
+        from openpyxl.utils import get_column_letter
+        for col_idx in range(1, NUM_COLS + 1):
             max_len = 0
-            col_letter = col_cells[0].column_letter
-            for cell in col_cells:
+            for row_idx2 in range(2, ws.max_row + 1):
+                cell = ws.cell(row=row_idx2, column=col_idx)
                 try:
                     if cell.value:
                         max_len = max(max_len, len(str(cell.value)))
                 except Exception:
                     pass
-            ws.column_dimensions[col_letter].width = min(max_len + 4, 50)
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 4, 50)
 
         buf = io.BytesIO()
         wb.save(buf)
