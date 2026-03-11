@@ -274,7 +274,16 @@ def pagina_ingresar(lookup: Dict):
         tipo_radio = st.radio("Tipo", ["Gasto", "Inversión"], horizontal=True)
         tipo_val = "G" if tipo_radio == "Gasto" else "I"
     with col8:
-        tc = st.number_input("Tipo de cambio", value=st.session_state.get("tc", 3.40), format="%.2f", step=0.01)
+        # El TC se carga de la web solo la primera vez (en main).
+        # El usuario puede editarlo y el valor queda en session_state["tc"]
+        tc = st.number_input(
+            "Tipo de cambio",
+            value=float(st.session_state.get("tc", 3.40)),
+            format="%.2f",
+            step=0.01,
+            key="tc_input"
+        )
+        # Actualizar session_state solo si el usuario lo cambió manualmente
         st.session_state["tc"] = tc
 
     # Total calculado
@@ -324,6 +333,12 @@ def pagina_ingresar(lookup: Dict):
 
         if sb_insert("facturas", fila):
             st.success("✅ Factura guardada correctamente.")
+            # Limpiar campos para el siguiente registro (preservar TC)
+            tc_guardado = st.session_state.get("tc", 3.40)
+            for key in list(st.session_state.keys()):
+                if key not in ("tc", "tc_input"):
+                    del st.session_state[key]
+            st.session_state["tc"] = tc_guardado
             st.rerun()
 
 # ─── PÁGINA MAESTRO ───────────────────────────────────────────────────────────
@@ -418,9 +433,75 @@ def pagina_ver_facturas():
     cols_show = [c for c in cols_show if c in df.columns]
     st.dataframe(df[cols_show], use_container_width=True, height=500)
 
-    # Exportar
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Descargar CSV", csv, "facturas.csv", "text/csv")
+    # Exportar Excel con formato
+    if st.button("⬇️ Descargar Excel", type="secondary"):
+        import io
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+        anio_actual = datetime.now().year
+        COLS_EXCEL = [
+            ("fecha_emision",           "FECHA DE EMISION"),
+            ("fecha_tramite_ivan",       "FECHA DE TRAMITE IVAN"),
+            ("fecha_tramite",            "FECHA DE TRAMITE"),
+            ("mes",                      "Mes"),
+            ("trimestre",                "Trimestre"),
+            ("grupodesccorporativa",     "GrupoDescCorporativa"),
+            ("grupocorpclasitiposervtic","GrupoCorpClasiTIpoServTIC"),
+            ("operativoiniciativa",      "Operativo/Iniciativa"),
+            ("ruc",                      "RUC"),
+            ("proveedor",                "NOMBRE DEL PROVEEDOR"),
+            ("descripcion",              "DESCRIPCION"),
+            ("numero_factura",           "NUMERO DE LA FACTURA"),
+            ("tipo",                     "Tipo"),
+            ("monto_sin_igv",            "MONTO DE LA FACTURA SIN IGV"),
+            ("moneda",                   "MONEDA"),
+            ("valor_usd",                "Valor USD"),
+            ("monto_total",              "MontoTotal"),
+        ]
+        NUM_COLS = len(COLS_EXCEL)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = f"Facturas {anio_actual}"
+
+        # Fila 1: título
+        ws.cell(row=1, column=1).value = f"RELACION DE FACTURAS TRAMITADAS {anio_actual}"
+        ws.cell(row=1, column=1).font = Font(bold=True, size=12)
+        ws.cell(row=1, column=1).alignment = Alignment(horizontal="center")
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=NUM_COLS)
+
+        # Fila 2: encabezados
+        fill_blue = PatternFill("solid", fgColor="1F4E79")
+        for col_idx, (_, header) in enumerate(COLS_EXCEL, start=1):
+            c = ws.cell(row=2, column=col_idx)
+            c.value = header
+            c.font = Font(bold=True, color="FFFFFF")
+            c.fill = fill_blue
+            c.alignment = Alignment(horizontal="center")
+
+        # Filas de datos: amarillo + bordes
+        fill_yellow = PatternFill("solid", fgColor="FFFF00")
+        thin = Side(border_style="thin", color="000000")
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        df_export = df[[col for col, _ in COLS_EXCEL if col in df.columns]]
+        for row_idx, row_data in enumerate(df_export.itertuples(index=False), start=3):
+            for col_idx, val in enumerate(row_data, start=1):
+                c = ws.cell(row=row_idx, column=col_idx)
+                c.value = val
+                c.fill = fill_yellow
+                c.border = border
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        st.download_button(
+            "📥 Descargar archivo Excel",
+            buf,
+            f"facturas_{anio_actual}.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 def main():
@@ -440,7 +521,8 @@ url = "https://xxxx.supabase.co"
 key = "eyJ..."
         """)
         st.stop()
-
+#
+#
     st.sidebar.title("🧾 Facturas TIC")
     st.sidebar.caption(f"Usuario: {st.secrets.get('usuario', 'Invitado')}")
 
