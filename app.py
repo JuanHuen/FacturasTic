@@ -229,7 +229,12 @@ def pagina_ingresar(lookup: Dict):
     st.subheader("Detalles de Factura")
 
     desc_sel = st.selectbox("Descripción larga", options=descs if descs else [""], key=f"desc_sel_{fn}")
-    desc_manual = st.text_input("O escribe descripción (o usa el selector de arriba):", key=f"desc_manual_{fn}").upper()
+    # Sincronizar texto editable con el selector (solo si el usuario no lo ha editado manualmente)
+    desc_key = f"desc_manual_{fn}"
+    if st.session_state.get(f"desc_sel_{fn}") != st.session_state.get(f"_prev_desc_sel_{fn}"):
+        st.session_state[desc_key] = desc_sel
+    st.session_state[f"_prev_desc_sel_{fn}"] = st.session_state.get(f"desc_sel_{fn}")
+    desc_manual = st.text_input("O edita la descripción:", key=desc_key).upper()
     descripcion = desc_manual if desc_manual else desc_sel.upper()
 
     # Contrato
@@ -262,7 +267,12 @@ def pagina_ingresar(lookup: Dict):
         plazo = f"{mes_ini} {anio_ini} - {mes_fin} {anio_fin}"
 
     fact_sel = st.selectbox("Factura", options=facts if facts else [""], key=f"fact_sel_{fn}")
-    fact_manual = st.text_input("O escribe número de factura (o usa el selector de arriba):", key=f"fact_manual_{fn}")
+    # Sincronizar texto editable con el selector (solo si el usuario no lo ha editado manualmente)
+    fact_key = f"fact_manual_{fn}"
+    if st.session_state.get(f"fact_sel_{fn}") != st.session_state.get(f"_prev_fact_sel_{fn}"):
+        st.session_state[fact_key] = fact_sel
+    st.session_state[f"_prev_fact_sel_{fn}"] = st.session_state.get(f"fact_sel_{fn}")
+    fact_manual = st.text_input("O edita el número de factura:", key=fact_key)
     factura = fact_manual if fact_manual else fact_sel
 
     col5, col6 = st.columns(2)
