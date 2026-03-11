@@ -180,14 +180,6 @@ def get_cell_data(lookup: Dict, ruc: str, prov: str, grp: str) -> dict:
 def pagina_ingresar(lookup: Dict):
     st.header("📄 Ingreso de Facturas")
 
-    # Si se acaba de guardar, limpiar campos (preservando TC)
-    if st.session_state.pop("_limpiar", False):
-        tc_guardado = st.session_state.get("tc", 3.40)
-        for key in list(st.session_state.keys()):
-            if key not in ("tc",):
-                del st.session_state[key]
-        st.session_state["tc"] = tc_guardado
-
     rucs = get_rucs(lookup)
     anio_actual = datetime.now().year
 
@@ -341,8 +333,14 @@ def pagina_ingresar(lookup: Dict):
 
         if sb_insert("facturas", fila):
             st.success("✅ Factura guardada correctamente.")
-            # Marcar para limpiar en el siguiente render (más rápido que borrar claves)
-            st.session_state["_limpiar"] = True
+            # Limpiar widgets con key seteando sus valores en session_state antes del rerun
+            tc_guardado = st.session_state.get("tc", 3.40)
+            claves_a_borrar = [k for k in st.session_state.keys()
+                               if k not in ("tc", "tc_input", "lookup_cache")]
+            for k in claves_a_borrar:
+                del st.session_state[k]
+            st.session_state["tc"] = tc_guardado
+            st.session_state["tc_input"] = tc_guardado
             st.rerun()
 
 # ─── PÁGINA MAESTRO ───────────────────────────────────────────────────────────
@@ -493,6 +491,18 @@ def pagina_ver_facturas():
             for col_idx, val in enumerate(row_data, start=1):
                 ws.cell(row=row_idx, column=col_idx).value = val
 
+        # Autoajustar ancho de columnas
+        for col_cells in ws.columns:
+            max_len = 0
+            col_letter = col_cells[0].column_letter
+            for cell in col_cells:
+                try:
+                    if cell.value:
+                        max_len = max(max_len, len(str(cell.value)))
+                except Exception:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max_len + 4, 50)
+
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
@@ -537,7 +547,10 @@ key = "eyJ..."
         with st.spinner("Obteniendo tipo de cambio..."):
             st.session_state["tc"] = get_exchange_rate()
 
-    lookup = cargar_maestro()
+    # Cachear maestro en session para no volver a Supabase en cada rerun del formulario
+    if "lookup_cache" not in st.session_state:
+        st.session_state["lookup_cache"] = cargar_maestro()
+    lookup = st.session_state["lookup_cache"]
 
     if pagina == "📄 Ingresar Factura":
         pagina_ingresar(lookup)
