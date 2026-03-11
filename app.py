@@ -374,10 +374,10 @@ def pagina_ingresar(lookup: Dict):
             "descripcion":            descripcion,
             "numero_factura":         factura,
             "tipo":                   "Gasto" if tipo_val == "G" else "Inversión",
-            "monto_sin_igv":          f"{monto_float:,.2f}",
+            "monto_sin_igv":          monto_float,
             "moneda":                 "DOLARES" if moneda_val == "D" else "SOLES",
-            "valor_usd":              f"{tc:,.2f}",
-            "monto_total":            f"{total:,.2f}",
+            "valor_usd":              round(float(tc), 2),
+            "monto_total":            total,
             "contrato":               "Sí" if es_contrato else "No",
             "plazo":                  plazo,
         }
