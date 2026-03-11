@@ -374,10 +374,10 @@ def pagina_ingresar(lookup: Dict):
             "descripcion":            descripcion,
             "numero_factura":         factura,
             "tipo":                   "Gasto" if tipo_val == "G" else "Inversión",
-            "monto_sin_igv":          monto_float,
+            "monto_sin_igv":          f"{monto_float:,.2f}",
             "moneda":                 "DOLARES" if moneda_val == "D" else "SOLES",
-            "valor_usd":              tc,
-            "monto_total":            total,
+            "valor_usd":              f"{tc:,.2f}",
+            "monto_total":            f"{total:,.2f}",
             "contrato":               "Sí" if es_contrato else "No",
             "plazo":                  plazo,
         }
@@ -530,11 +530,26 @@ def pagina_ver_facturas():
             c.border = border
             c.alignment = Alignment(horizontal="center")
 
+        # Columnas numéricas que deben ir con formato de miles
+        cols_numericas = {"monto_sin_igv", "valor_usd", "monto_total"}
+        cols_excel_keys = [col for col, _ in COLS_EXCEL]
+
         # Filas de datos (fila 3+): sin color, sin bordes
-        df_export = df[[col for col, _ in COLS_EXCEL if col in df.columns]]
+        df_export = df[[col for col in cols_excel_keys if col in df.columns]]
         for row_idx, row_data in enumerate(df_export.itertuples(index=False), start=3):
-            for col_idx, val in enumerate(row_data, start=1):
-                ws.cell(row=row_idx, column=col_idx).value = val
+            for col_idx, (col_key, val) in enumerate(zip(cols_excel_keys, row_data), start=1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                # Si es columna numérica, intentar convertir y aplicar formato
+                if col_key in cols_numericas:
+                    try:
+                        num = float(str(val).replace(",", "")) if val not in (None, "") else None
+                        if num is not None:
+                            cell.value = num
+                            cell.number_format = "#,##0.00"
+                            continue
+                    except (ValueError, TypeError):
+                        pass
+                cell.value = val
 
         # Autoajustar ancho de columnas (usando índice para evitar problema con celdas mergeadas)
         from openpyxl.utils import get_column_letter
