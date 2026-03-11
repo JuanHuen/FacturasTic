@@ -180,6 +180,14 @@ def get_cell_data(lookup: Dict, ruc: str, prov: str, grp: str) -> dict:
 def pagina_ingresar(lookup: Dict):
     st.header("📄 Ingreso de Facturas")
 
+    # Si se acaba de guardar, limpiar campos (preservando TC)
+    if st.session_state.pop("_limpiar", False):
+        tc_guardado = st.session_state.get("tc", 3.40)
+        for key in list(st.session_state.keys()):
+            if key not in ("tc",):
+                del st.session_state[key]
+        st.session_state["tc"] = tc_guardado
+
     rucs = get_rucs(lookup)
     anio_actual = datetime.now().year
 
@@ -333,12 +341,8 @@ def pagina_ingresar(lookup: Dict):
 
         if sb_insert("facturas", fila):
             st.success("✅ Factura guardada correctamente.")
-            # Limpiar campos para el siguiente registro (preservar TC)
-            tc_guardado = st.session_state.get("tc", 3.40)
-            for key in list(st.session_state.keys()):
-                if key not in ("tc", "tc_input"):
-                    del st.session_state[key]
-            st.session_state["tc"] = tc_guardado
+            # Marcar para limpiar en el siguiente render (más rápido que borrar claves)
+            st.session_state["_limpiar"] = True
             st.rerun()
 
 # ─── PÁGINA MAESTRO ───────────────────────────────────────────────────────────
@@ -471,27 +475,23 @@ def pagina_ver_facturas():
         ws.cell(row=1, column=1).alignment = Alignment(horizontal="center")
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=NUM_COLS)
 
-        # Fila 2: encabezados
-        fill_blue = PatternFill("solid", fgColor="1F4E79")
-        for col_idx, (_, header) in enumerate(COLS_EXCEL, start=1):
-            c = ws.cell(row=2, column=col_idx)
-            c.value = header
-            c.font = Font(bold=True, color="FFFFFF")
-            c.fill = fill_blue
-            c.alignment = Alignment(horizontal="center")
-
-        # Filas de datos: amarillo + bordes
+        # Fila 2: encabezados — amarillo con bordes
         fill_yellow = PatternFill("solid", fgColor="FFFF00")
         thin = Side(border_style="thin", color="000000")
         border = Border(left=thin, right=thin, top=thin, bottom=thin)
+        for col_idx, (_, header) in enumerate(COLS_EXCEL, start=1):
+            c = ws.cell(row=2, column=col_idx)
+            c.value = header
+            c.font = Font(bold=True)
+            c.fill = fill_yellow
+            c.border = border
+            c.alignment = Alignment(horizontal="center")
 
+        # Filas de datos (fila 3+): sin color, sin bordes
         df_export = df[[col for col, _ in COLS_EXCEL if col in df.columns]]
         for row_idx, row_data in enumerate(df_export.itertuples(index=False), start=3):
             for col_idx, val in enumerate(row_data, start=1):
-                c = ws.cell(row=row_idx, column=col_idx)
-                c.value = val
-                c.fill = fill_yellow
-                c.border = border
+                ws.cell(row=row_idx, column=col_idx).value = val
 
         buf = io.BytesIO()
         wb.save(buf)
