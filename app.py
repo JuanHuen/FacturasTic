@@ -519,7 +519,7 @@ def pagina_ver_facturas():
         ws.cell(row=1, column=1).alignment = Alignment(horizontal="center")
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=NUM_COLS)
 
-        # Fila 2: encabezados — amarillo con bordes
+        # Fila 2: encabezados — amarillo con bordes, altura 25
         fill_yellow = PatternFill("solid", fgColor="FFFF00")
         thin = Side(border_style="thin", color="000000")
         border = Border(left=thin, right=thin, top=thin, bottom=thin)
@@ -529,7 +529,8 @@ def pagina_ver_facturas():
             c.font = Font(bold=True)
             c.fill = fill_yellow
             c.border = border
-            c.alignment = Alignment(horizontal="center")
+            c.alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[2].height = 25
 
         # Columnas numéricas que deben ir con formato de miles
         cols_numericas = {"monto_sin_igv", "valor_usd", "monto_total"}
@@ -551,6 +552,10 @@ def pagina_ver_facturas():
                     except (ValueError, TypeError):
                         pass
                 cell.value = val
+
+        # Filtros automáticos en fila 2
+        from openpyxl.utils import get_column_letter as gcl
+        ws.auto_filter.ref = f"A2:{gcl(NUM_COLS)}2"
 
         # Autoajustar ancho de columnas (usando índice para evitar problema con celdas mergeadas)
         from openpyxl.utils import get_column_letter
