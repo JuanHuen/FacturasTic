@@ -180,6 +180,9 @@ def get_cell_data(lookup: Dict, ruc: str, prov: str, grp: str) -> dict:
 def pagina_ingresar(lookup: Dict):
     st.header("📄 Ingreso de Facturas")
 
+    # Contador para resetear widgets (cambia la key de cada widget al guardar)
+    form_n = st.session_state.get("form_n", 0)
+
     rucs = get_rucs(lookup)
     anio_actual = datetime.now().year
 
@@ -192,17 +195,18 @@ def pagina_ingresar(lookup: Dict):
         fecha_b  = st.date_input("Fecha de Trámite IT", value=datetime.now())
         fecha_c  = st.date_input("Fecha de Imputación IT", value=datetime.now())
 
-    # ── RUC / Proveedor / Grupo
+    # ── RUC / Proveedor / Grupo  (keys con form_n para resetear al guardar)
+    fn = form_n
     with col2:
         st.subheader("Identificación")
-        ruc_input = st.selectbox("RUC", options=[""] + rucs, index=0)
+        ruc_input = st.selectbox("RUC", options=[""] + rucs, index=0, key=f"ruc_{fn}")
         ruc = limpiar_ruc(ruc_input)
 
         proveedores = get_proveedores(lookup, ruc)
-        prov = st.selectbox("Proveedor", options=proveedores if proveedores else [""])
+        prov = st.selectbox("Proveedor", options=proveedores if proveedores else [""], key=f"prov_{fn}")
 
         grupos = get_grupos(lookup, ruc, prov)
-        grp_disp = st.selectbox("GrupoDescCorporativa", options=grupos if grupos else [""])
+        grp_disp = st.selectbox("GrupoDescCorporativa", options=grupos if grupos else [""], key=f"grp_{fn}")
 
     # ── Datos de la celda
     cell = get_cell_data(lookup, ruc, prov, grp_disp)
@@ -217,28 +221,27 @@ def pagina_ingresar(lookup: Dict):
     st.subheader("Clasificación y Tipo")
     col3, col4 = st.columns(2)
     with col3:
-        grpcorp = st.selectbox("Descripción corta", options=grpcorp_opts)
+        grpcorp = st.selectbox("Descripción corta", options=grpcorp_opts, key=f"grpcorp_{fn}")
     with col4:
-        oper = st.selectbox("Operativo/Iniciativa", options=oper_opts)
+        oper = st.selectbox("Operativo/Iniciativa", options=oper_opts, key=f"oper_{fn}")
 
     st.divider()
     st.subheader("Detalles de Factura")
 
-    desc_sel = st.selectbox("Descripción larga", options=descs if descs else [""])
-    desc_manual = st.text_input("O escribe descripción:", value=desc_sel).upper()
+    desc_sel = st.selectbox("Descripción larga", options=descs if descs else [""], key=f"desc_sel_{fn}")
+    desc_manual = st.text_input("O escribe descripción:", value=desc_sel, key=f"desc_manual_{fn}").upper()
     descripcion = desc_manual if desc_manual else desc_sel.upper()
 
     # Contrato
-    es_contrato = st.radio("¿Es contrato?", ["No", "Sí"], horizontal=True) == "Sí"
+    es_contrato = st.radio("¿Es contrato?", ["No", "Sí"], horizontal=True, key=f"contrato_{fn}") == "Sí"
     plazo = ""
     if es_contrato:
         anios_rango = [str(anio_actual + i) for i in range(-3, 4)]
         cp1, cp2, cp3, cp4 = st.columns(4)
         with cp1:
-            mes_ini = st.selectbox("Mes inicio", MESES, key="mes_ini")
+            mes_ini = st.selectbox("Mes inicio", MESES, key=f"mes_ini_{fn}")
         with cp2:
-            anio_ini = st.selectbox("Año inicio", anios_rango, index=3, key="anio_ini")
-        # calcular opciones fin (máx 12 meses después)
+            anio_ini = st.selectbox("Año inicio", anios_rango, index=3, key=f"anio_ini_{fn}")
         mes_ini_idx = MESES.index(mes_ini)
         anio_ini_int = int(anio_ini)
         opts_fin = []
@@ -253,25 +256,25 @@ def pagina_ingresar(lookup: Dict):
         idx_mes  = opts_mes_fin.index(mes_fin_default)  if mes_fin_default  in opts_mes_fin  else 0
         idx_anio = opts_anio_fin.index(anio_fin_default) if anio_fin_default in opts_anio_fin else len(opts_anio_fin)-1
         with cp3:
-            mes_fin  = st.selectbox("Mes fin",  opts_mes_fin,  index=idx_mes,  key="mes_fin")
+            mes_fin  = st.selectbox("Mes fin",  opts_mes_fin,  index=idx_mes,  key=f"mes_fin_{fn}")
         with cp4:
-            anio_fin = st.selectbox("Año fin",  opts_anio_fin, index=idx_anio, key="anio_fin")
+            anio_fin = st.selectbox("Año fin",  opts_anio_fin, index=idx_anio, key=f"anio_fin_{fn}")
         plazo = f"{mes_ini} {anio_ini} - {mes_fin} {anio_fin}"
 
-    fact_sel = st.selectbox("Factura", options=facts if facts else [""])
-    fact_manual = st.text_input("O escribe número de factura:", value=fact_sel)
+    fact_sel = st.selectbox("Factura", options=facts if facts else [""], key=f"fact_sel_{fn}")
+    fact_manual = st.text_input("O escribe número de factura:", value=fact_sel, key=f"fact_manual_{fn}")
     factura = fact_manual if fact_manual else fact_sel
 
     col5, col6 = st.columns(2)
     with col5:
-        monto_str = st.text_input("Monto sin IGV")
+        monto_str = st.text_input("Monto sin IGV", key=f"monto_{fn}")
     with col6:
-        moneda = st.radio("Moneda", ["Soles (S)", "Dólares (D)"], horizontal=True)
+        moneda = st.radio("Moneda", ["Soles (S)", "Dólares (D)"], horizontal=True, key=f"moneda_{fn}")
         moneda_val = "D" if "D" in moneda else "S"
 
     col7, col8 = st.columns(2)
     with col7:
-        tipo_radio = st.radio("Tipo", ["Gasto", "Inversión"], horizontal=True)
+        tipo_radio = st.radio("Tipo", ["Gasto", "Inversión"], horizontal=True, key=f"tipo_{fn}")
         tipo_val = "G" if tipo_radio == "Gasto" else "I"
     with col8:
         # El TC se carga de la web solo la primera vez (en main).
@@ -280,10 +283,8 @@ def pagina_ingresar(lookup: Dict):
             "Tipo de cambio",
             value=float(st.session_state.get("tc", 3.40)),
             format="%.2f",
-            step=0.01,
-            key="tc_input"
+            step=0.01
         )
-        # Actualizar session_state solo si el usuario lo cambió manualmente
         st.session_state["tc"] = tc
 
     # Total calculado
@@ -333,14 +334,8 @@ def pagina_ingresar(lookup: Dict):
 
         if sb_insert("facturas", fila):
             st.success("✅ Factura guardada correctamente.")
-            # Limpiar widgets con key seteando sus valores en session_state antes del rerun
-            tc_guardado = st.session_state.get("tc", 3.40)
-            claves_a_borrar = [k for k in st.session_state.keys()
-                               if k not in ("tc", "tc_input", "lookup_cache")]
-            for k in claves_a_borrar:
-                del st.session_state[k]
-            st.session_state["tc"] = tc_guardado
-            st.session_state["tc_input"] = tc_guardado
+            # Incrementar contador para resetear widgets con keys nuevas (rápido, sin borrar todo)
+            st.session_state["form_n"] = st.session_state.get("form_n", 0) + 1
             st.rerun()
 
 # ─── PÁGINA MAESTRO ───────────────────────────────────────────────────────────
