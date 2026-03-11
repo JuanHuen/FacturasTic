@@ -277,7 +277,7 @@ def pagina_ingresar(lookup: Dict):
 
     col5, col6 = st.columns(2)
     with col5:
-        monto_str = st.text_input("Monto sin IGV", key=f"monto_{fn}")
+        monto_str = st.text_input("Monto sin IGV", key=f"monto_{fn}", placeholder="Ej: 1500.00")
     with col6:
         moneda = st.radio("Moneda", ["Soles (S)", "Dólares (D)"], horizontal=True, key=f"moneda_{fn}")
         moneda_val = "D" if "D" in moneda else "S"
@@ -287,8 +287,6 @@ def pagina_ingresar(lookup: Dict):
         tipo_radio = st.radio("Tipo", ["Gasto", "Inversión"], horizontal=True, key=f"tipo_{fn}")
         tipo_val = "G" if tipo_radio == "Gasto" else "I"
     with col8:
-        # El TC se carga de la web solo la primera vez (en main).
-        # El usuario puede editarlo y el valor queda en session_state["tc"]
         tc = st.number_input(
             "Tipo de cambio",
             value=float(st.session_state.get("tc", 3.40)),
@@ -297,13 +295,55 @@ def pagina_ingresar(lookup: Dict):
         )
         st.session_state["tc"] = tc
 
+    # Validar y parsear monto
+    monto_float = 0.0
+    monto_valido = True
+    if monto_str:
+        # Limpiar: quitar espacios, permitir cualquier formato de miles/millones
+        monto_limpio = monto_str.strip().replace(" ", "")
+        # Formato: coma decimal + punto de miles: 1.500.000,50 -> 1500000.50
+        if "," in monto_limpio and "." in monto_limpio:
+            if monto_limpio.rfind(",") > monto_limpio.rfind("."):
+                # coma es decimal (1.500.000,50)
+                monto_limpio = monto_limpio.replace(".", "").replace(",", ".")
+            else:
+                # punto es decimal (1,500,000.50)
+                monto_limpio = monto_limpio.replace(",", "")
+        # Solo coma: decimal (1500,50) — quita si hay múltiples comas (1.500.000)
+        elif "," in monto_limpio and "." not in monto_limpio:
+            partes = monto_limpio.split(",")
+            if len(partes) == 2 and len(partes[1]) <= 2:
+                monto_limpio = monto_limpio.replace(",", ".")  # decimal
+            else:
+                monto_limpio = monto_limpio.replace(",", "")   # miles
+        # Solo puntos múltiples: 1.500.000 -> miles
+        elif monto_limpio.count(".") > 1:
+            monto_limpio = monto_limpio.replace(".", "")
+        # Un solo punto: si la parte decimal tiene 3 dígitos es miles (1.500), si no es decimal (1.50)
+        elif "." in monto_limpio and "," not in monto_limpio:
+            partes = monto_limpio.split(".")
+            if len(partes) == 2 and len(partes[1]) == 3 and partes[1].isdigit():
+                monto_limpio = monto_limpio.replace(".", "")  # miles: 1.500 -> 1500
+        try:
+            monto_float = float(monto_limpio)
+            if monto_float < 0:
+                monto_valido = False
+                st.error("⚠️ Por favor digitar un monto válido (no puede ser negativo).")
+            else:
+                # Mostrar con formato de miles al usuario
+                st.caption(f"✓ Monto: {monto_float:,.2f}")
+        except ValueError:
+            monto_valido = False
+            st.error("⚠️ Por favor digitar un monto válido (solo números, ej: 1500.00).")
+
     # Total calculado
-    try:
-        monto_float = float(monto_str.replace(",", ".")) if monto_str else 0.0
+    if monto_valido and monto_float > 0:
         total = round(monto_float * tc, 2) if moneda_val == "D" else round(monto_float, 2)
         st.metric("Total en Soles", f"S/ {total:,.2f}")
-    except Exception:
+    else:
         total = 0.0
+        if not monto_str:
+            st.metric("Total en Soles", "S/ 0.00")
 
     st.divider()
 
@@ -311,8 +351,8 @@ def pagina_ingresar(lookup: Dict):
         if not ruc:
             st.error("Debes ingresar un RUC.")
             return
-        if not monto_str:
-            st.error("Debes ingresar el monto.")
+        if not monto_str or not monto_valido or monto_float <= 0:
+            st.error("⚠️ Por favor digitar un monto válido.")
             return
 
         fa = fecha_em
