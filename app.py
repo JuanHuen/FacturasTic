@@ -361,9 +361,9 @@ def pagina_ingresar(lookup: Dict):
         grp_real = "" if grp_disp == "<Sin grupo>" else grp_disp
 
         fila = {
-            "fecha_emision":          str(fecha_em),
-            "fecha_tramite_ivan":     str(fecha_b),
-            "fecha_tramite":          str(fecha_c),
+            "fecha_emision":          fecha_em.strftime("%d/%m/%Y"),
+            "fecha_tramite_ivan":     fecha_b.strftime("%d/%m/%Y"),
+            "fecha_tramite":          fecha_c.strftime("%d/%m/%Y"),
             "mes":                    mes_anno,
             "trimestre":              trimestre,
             "grupodesccorporativa":   grp_real,
@@ -475,8 +475,9 @@ def pagina_ver_facturas():
     if "monto_total" in df.columns:
         st.metric("Monto total (S/)", f"{df['monto_total'].sum():,.2f}")
 
-    cols_show = ["fecha_emision","proveedor","ruc","descripcion","numero_factura",
-                 "tipo","moneda","monto_sin_igv","monto_total","contrato","plazo"]
+    cols_show = ["fecha_emision","fecha_tramite_ivan","fecha_tramite","proveedor","ruc",
+                 "descripcion","numero_factura","tipo","moneda","monto_sin_igv","monto_total",
+                 "contrato","plazo"]
     cols_show = [c for c in cols_show if c in df.columns]
     st.dataframe(df[cols_show], use_container_width=True, height=500)
 
